@@ -81,7 +81,8 @@ namespace Steeltoe.Discovery.Client.Test
                 { "spring:cloud:inet:skipReverseDnsLookup", "true" },
                 { "eureka:client:shouldFetchRegistry", "false" },
                 { "eureka:client:shouldRegisterWithEureka", "false" },
-                { "eureka:instance:useNetUtils", "true" }
+                { "eureka:instance:useNetUtils", "true" },
+                { "eureka:client:EurekaServer:ConnectTimeoutSeconds", "0" }
             };
 
             var config = new ConfigurationBuilder().AddInMemoryCollection(appsettings).Build();
@@ -102,7 +103,8 @@ namespace Steeltoe.Discovery.Client.Test
             var appsettings = new Dictionary<string, string>()
             {
                 { "spring:application:name", "myName" },
-                { "eureka:client:serviceUrl", "http://localhost:8761/eureka/" }
+                { "eureka:client:serviceUrl", "http://localhost:8761/eureka/" },
+                { "eureka:client:EurekaServer:ConnectTimeoutSeconds", "0" }
             };
             var config = new ConfigurationBuilder()
                 .AddInMemoryCollection(appsettings)
@@ -510,8 +512,12 @@ namespace Steeltoe.Discovery.Client.Test
             IServiceCollection services = new ServiceCollection();
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
 
-            // Act and Assert
-            var ex = Assert.Throws<ConnectorException>(() => DiscoveryServiceCollectionExtensions.AddServiceDiscovery(services, builder => builder.UseEureka("foobar")));
+            // Act
+            DiscoveryServiceCollectionExtensions.AddServiceDiscovery(services, builder => builder.UseEureka("foobar"));
+            var sp = services.BuildServiceProvider();
+
+            // assert
+            var ex = Assert.Throws<ConnectorException>(() => sp.GetService<IDiscoveryClient>());
             Assert.Contains("foobar", ex.Message);
         }
 
@@ -592,8 +598,12 @@ namespace Steeltoe.Discovery.Client.Test
 
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddCloudFoundry().Build());
 
-            // Act and Assert
-            var ex = Assert.Throws<ConnectorException>(() => DiscoveryServiceCollectionExtensions.AddServiceDiscovery(services, (options) => options.UseEureka()));
+            // Act
+            DiscoveryServiceCollectionExtensions.AddServiceDiscovery(services, (options) => options.UseEureka());
+            var sp = services.BuildServiceProvider();
+
+            // Assert
+            var ex = Assert.Throws<ConnectorException>(() => sp.GetService<IDiscoveryClient>());
             Assert.Contains("Multiple", ex.Message);
         }
 
@@ -778,7 +788,7 @@ namespace Steeltoe.Discovery.Client.Test
         public void AddServiceDiscovery_WithMultipleClients_PicksConfigured()
         {
             var serviceCollection = new ServiceCollection();
-            serviceCollection.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string> { { "eureka:client:cachettl", "1" } }).Build());
+            serviceCollection.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string> { { "eureka:client:EurekaServer:ConnectTimeoutSeconds", "0" } }).Build());
 
             // act
             var provider = serviceCollection.AddServiceDiscovery(builder =>
